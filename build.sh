@@ -16,7 +16,7 @@ print_help()
 
 build_server()
 {
-    gcc src/server/server.c -o build/server
+    gcc  src/server/server.c -o build/server
 }
 
 build_client()

@@ -9,8 +9,6 @@
 #include <errno.h>
 #include <string.h>
 
-using namespace std;
-
 #define MAXLINE 5
 #define OPEN_MAX 100
 #define LISTENQ 20
@@ -26,6 +24,7 @@ void setnonblocking(int sock)
         perror("fcntl(sock,GETFL)");
         return;
     }
+
     opts = opts|O_NONBLOCK;
     if(fcntl(sock,F_SETFL,opts)<0)
     {
@@ -42,21 +41,27 @@ void CloseAndDisable(int sockid, epoll_event ee)
 
 int main()
 {
-    int i, maxi, listenfd, connfd, sockfd,epfd,nfds, portnumber;
+    int i;
+    int maxi = 0;
+    int listenfd;
+    int connfd;
+    int sockfd;
+    int epfd;
+    int nfds;
+    int portnumber = 5000;
     char line[MAXLINE];
     socklen_t clilen;
 
-    portnumber = 5000;
-
     //声明epoll_event结构体的变量,ev用于注册事件,数组用于回传要处理的事件
+    struct epoll_event ev;
+    struct epoll_event events[20];
 
-    struct epoll_event ev,events[20];
     //生成用于处理accept的epoll专用的文件描述符
-
-    epfd=epoll_create(256);
+    epfd = epoll_create(256);
     struct sockaddr_in clientaddr;
     struct sockaddr_in serveraddr;
-    listenfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    listenfd = socket(AF_INET, SOCK_STREAM, 0); //OK
 
     memset(&serveraddr, 0, sizeof(serveraddr));
     serveraddr.sin_family = AF_INET;
@@ -64,8 +69,18 @@ int main()
     serveraddr.sin_port=htons(portnumber);
 
     // bind and listen
-    bind(listenfd,(sockaddr *)&serveraddr, sizeof(serveraddr));
-    listen(listenfd, LISTENQ);
+    bind(listenfd,(sockaddr *)&serveraddr, sizeof(serveraddr)); //ok
+
+    //解决 Bind error: Address already in use,使绑定的ip关闭后立刻重新使用
+    int on = 1;
+    int ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)); //ok
+    if(ret < 0)
+    {    
+        perror("server: setsockopt failed!");
+        return -1;
+    }
+
+    listen(listenfd, LISTENQ); //ok
 
     //设置与要处理的事件相关的文件描述符
     ev.data.fd=listenfd;
@@ -74,31 +89,25 @@ int main()
     //ev.events=EPOLLIN;
 
     //注册epoll事件
-    epoll_ctl(epfd,EPOLL_CTL_ADD,listenfd,&ev);
+    if(-1 == epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &ev)){ 
+        log_e("epoll_ctl");
+        return -1;    
+    }
 
-    maxi = 0;
-
-    int bOut = 0;
-    for ( ; ; )
+    while(1)
     {
-        if (bOut == 1)
-            break;
         //等待epoll事件的发生
-
-        nfds=epoll_wait(epfd,events,20,-1);
+        nfds=epoll_wait(epfd, events, 20, -1);
         //处理所发生的所有事件
-        cout << "\nepoll_wait returns\n";
-
-        for(i=0;i<nfds;++i)
+        for(i = 0; i < nfds; ++i)
         {
-            if(events[i].data.fd==listenfd)//如果新监测到一个SOCKET用户连接到了绑定的SOCKET端口，建立新的连接。
+            if(events[i].data.fd == listenfd)//如果新监测到一个SOCKET用户连接到了绑定的SOCKET端口，建立新的连接。
             {
                 connfd = accept(listenfd,(sockaddr *)&clientaddr, &clilen);
-                if(connfd<0){
+                if(connfd < 0){
                     perror("connfd<0");
                     return (1);
                 }
-                
 
                 char *str = inet_ntoa(clientaddr.sin_addr);
                 cout << "accapt a connection from " << str << endl;
@@ -139,10 +148,10 @@ int main()
                         }
                         else if (errno == ECONNRESET)
                         {
-                                // 对方发送了RST
-                                CloseAndDisable(sockfd, events[i]);
-                                cout << "counterpart send out RST\n";
-                                break;
+                            // 对方发送了RST
+                            CloseAndDisable(sockfd, events[i]);
+                            cout << "counterpart send out RST\n";
+                            break;
                          }
                         else if (errno == EINTR)
                         {
@@ -185,14 +194,12 @@ int main()
                     line[count] = '\0';
 
                     cout << "we have read from the client : " << line;
-                    //设置用于写操作的文件描述符
 
+                    //设置用于写操作的文件描述符
                     ev.data.fd=sockfd;
                     //设置用于注测的写操作事件
-
                     ev.events = EPOLLOUT | EPOLLET;
                     //修改sockfd上要处理的事件为EPOLLOUT
-
                     epoll_ctl(epfd,EPOLL_CTL_MOD,sockfd,&ev);
                 }
             }

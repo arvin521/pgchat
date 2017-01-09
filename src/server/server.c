@@ -1,191 +1,70 @@
-#include <string.h>  
-#include <stdio.h>
-#include <stdlib.h>  
-#include <unistd.h>  
-#include <sys/select.h>  
-#include <sys/time.h>  
-#include <sys/socket.h>
-#include <netinet/in.h>  
-#include <arpa/inet.h>  
-#include <sys/epoll.h>  
-#include <errno.h>
+#ifdef _cplusplus 
+extern "C"{ 
+#endif
 
-#include "inc/comm.h"
 #include "inc/server/server.h"
-
-static int init_socket()
-{
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-    {
-        perror("server: socket create error");
-        return -1;
-    }
-        
-
-    //解决 Bind error: Address already in use,使绑定的ip关闭后立刻重新使用
-    int on = 1;
-    int ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-    if(ret < 0)
-    {    
-        perror("server: setsockopt failed!");
-        return -1;
-    }
-      
-    //bind
-    struct sockaddr_in my_addr;  
-    bzero(&my_addr, sizeof(my_addr));  
-    my_addr.sin_family = AF_INET;  
-    my_addr.sin_port = htons(port);  
-    my_addr.sin_addr.s_addr = htonl(INADDR_ANY);  
-    ret = bind(sockfd, (struct sockaddr *)&my_addr, sizeof(my_addr));
-    if (ret < 0)
-    {
-        perror("server: bind failed!");
-        return -1;
-    }
-
-    //listen
-    ret = listen(sockfd, 10);
-    if (ret < 0)
-    {
-        perror("server: listen failed!");
-        return -1;
-    }
-
-    return sockfd;
-}
 
 int main(int argc, char *argv[])  
 {
-    struct epoll_event event;      // 告诉内核要监听什么事件    
-    struct epoll_event wait_event; // 内核监听完的结果  
-      
-    int sockfd = init_socket();
-    if (sockfd < 0)
+    int i = 0;
+    int iRet = 0;
+    int iActiveLinkNum = 0;
+
+    stSOCKET_INFO stSocketInfo;
+    memset(&stSocketInfo, 0, sizeof(stSocketInfo));
+
+    iRet = socket_init(&stSocketInfo);
+    if (iRet != OK)
     {
-        log_e ("server: init_socket failed!");    
-        return -1; 
-    }
-    
-    //epoll相应参数准备
-    int fd[OPEN_MAX];
-    int i = 0, maxi = 0;
-    memset(fd, -1, sizeof(fd));
-    fd[0] = sockfd;
-      
-    int epfd = epoll_create(10);
-    if( epfd < 0 ){
-        log_e("server: epoll_create failed!");
-        return -1;
-    }
-    
-    event.data.fd = sockfd;     //监听套接字    
-    event.events = EPOLLIN; // 表示对应的文件描述符可以读  
-      
-    //5.事件注册函数，将监听套接字描述符 sockfd 加入监听事件    
-    int ret = epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &event);    
-    if(-1 == ret){    
-        log_e("epoll_ctl");
-        return -1;    
+        log_e("socket_init failed!");
+        return ERR;
     }
 
-    //6.对已连接的客户端的数据处理  
-    while(1)  
-    {  
-        // 监视并等待多个文件（标准输入，udp套接字）描述符的属性变化（是否可读）    
-        // 没有属性变化，这个函数会阻塞，直到有变化才往下执行，这里没有设置超时     
-        ret = epoll_wait(epfd, &wait_event, maxi+1, -1);   
-        
-        //6.1监测sockfd(监听套接字)是否存在新的连接  
-        if(( sockfd == wait_event.data.fd ) && ( EPOLLIN == wait_event.events & EPOLLIN ) )  
+    while(1)
+    {
+        iActiveLinkNum = socket_wait(&stSocketInfo);
+        for(i = 0; i < iActiveLinkNum; ++i)
         {
-            struct sockaddr_in client_addr;  
-            int clilen = sizeof(client_addr);  
-              
-            //6.1.1 从tcp完成连接中提取客户端  
-            int connfd = accept(sockfd, (struct sockaddr *)&client_addr, &clilen);  
-              
-            //6.1.2 将提取到的connfd放入fd数组中，以便下面轮询客户端套接字
-            for(i = 1; i < OPEN_MAX; i++)  
-            {  
-                if(fd[i] < 0)  
-                {  
-                    fd[i] = connfd;  
-                    event.data.fd = connfd; //监听套接字    
-                    event.events = EPOLLIN; // 表示对应的文件描述符可以读  
-                      
-                    //6.1.3.事件注册函数，将监听套接字描述符 connfd 加入监听事件    
-                    ret = epoll_ctl(epfd, EPOLL_CTL_ADD, connfd, &event);    
-                    if(-1 == ret)
-                    {
-                        log_e("epoll_ctl");    
-                        return -1;    
-                    }   
-                      
-                    break;  
-                }  
-            }  
-              
-            //6.1.4 maxi更新  
-            if(i > maxi)
+            //如果检测到一个SOCKET用户连接到了绑定的SOCKET端口，建立新的连接。
+            if(stSocketInfo.astEpollEvents[i].data.fd == stSocketInfo.iSockfd)
             {
-                maxi = i;
+                log_i("add new connect.");
+                iRet = socket_add_link(&stSocketInfo);
+                if (iRet != OK)
+                {
+                    log_e("socket_add_link failed!");
+                    return ERR;
+                }
             }
-                  
-            //6.1.5 如果没有就绪的描述符，就继续epoll监测，否则继续向下看
-            --ret;
-            if (ret <= 0)
+            else if(stSocketInfo.astEpollEvents[i].events & EPOLLIN) // 如果是已经连接的用户，并且收到数据，则读入
             {
-                continue;
+                log_i("recv data.");
+                iRet = socket_recv(&(stSocketInfo.astEpollEvents[i]), &stSocketInfo);
+                if (iRet != OK)
+                {
+                    log_e("socket_recv failed!");
+                    return ERR;
+                }
             }
-        }  
-          
-        //6.2继续响应就绪的描述符  
-        for(i=1; i<=maxi; i++)  
-        {  
-            if(fd[i] < 0)
+            else if(stSocketInfo.astEpollEvents[i].events & EPOLLOUT) // 如果有数据发送，则发送
             {
-                continue;
+                log_i("send data.");
+                iRet = socket_send(&(stSocketInfo.astEpollEvents[i]));
+                if (iRet != OK)
+                {
+                    log_e("socket_send failed!");
+                    return ERR;
+                }
             }
-              
-            if(( fd[i] == wait_event.data.fd ) && ( EPOLLIN == wait_event.events & (EPOLLIN|EPOLLERR) ))  
-            {  
-                int len = 0;
-                char buf[128] = "";
-                  
-                //6.2.1接受客户端数据
-                if((len = recv(fd[i], buf, sizeof(buf), 0)) < 0)
-                {
-                    if(errno == ECONNRESET)//tcp连接超时、RST
-                    {
-                        close(fd[i]);
-                        fd[i] = -1;
-                    }
-                    else
-                    {
-                        log_e("read error:");
-                    }
-                }
-                else if(len == 0)//客户端关闭连接
-                {
-                    close(fd[i]);
-                    fd[i] = -1;
-                }
-                else//正常接收到服务器的数据
-                {
-                    send(fd[i], buf, len, 0);
-                }
-                  
-                //6.2.2所有的就绪描述符处理完了，就退出当前的for循环，继续poll监测
-                --ret;
-                if (ret <= 0)
-                {
-                    break;
-                }
-            }  
-        }  
+        }
     }
-    close();
+
     return 0;
-}  
+}
+
+
+
+
+#ifdef _cplusplus 
+} 
+#endif
