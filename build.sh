@@ -30,7 +30,7 @@ if [[ $# != 1 && $# != 0 ]]; then
 fi
 
 PWD=`pwd`
-export C_INCLUDE_PATH=C_INCLUDE_PATH:$PWD/inc
+export C_INCLUDE_PATH=C_INCLUDE_PATH:$PWD
 
 if [[ $# == 0 ]]; then
     build_client

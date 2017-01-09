@@ -10,13 +10,12 @@
 #include <sys/epoll.h>  
 #include <errno.h>
 
-#include "comm.h"
+#include "inc/comm.h"
 
 #define OPEN_MAX 100
 
-static init_socket()
+static int init_socket()
 {
-    //1.创建tcp监听套接字  
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
     {
@@ -34,7 +33,7 @@ static init_socket()
         return -1;
     }
       
-    //2.绑定sockfd
+    //bind
     struct sockaddr_in my_addr;  
     bzero(&my_addr, sizeof(my_addr));  
     my_addr.sin_family = AF_INET;  
@@ -47,7 +46,7 @@ static init_socket()
         return -1;
     }
 
-    //3.监听listen  
+    //listen
     ret = listen(sockfd, 10);
     if (ret < 0)
     {
@@ -60,40 +59,39 @@ static init_socket()
 
 int main(int argc, char *argv[])  
 {  
-    struct epoll_event event;   // 告诉内核要监听什么事件    
-    struct epoll_event wait_event; //内核监听完的结果  
+    struct epoll_event event;      // 告诉内核要监听什么事件    
+    struct epoll_event wait_event; // 内核监听完的结果  
       
     int sockfd = init_socket();
     if (sockfd < 0)
     {
-        perror ("server: init_socket failed!");    
+        log_e ("server: init_socket failed!");    
         return -1; 
     }
-    printf("server: init_socket OK\n");
-       
-    //4.epoll相应参数准备  
-    int fd[OPEN_MAX];  
-    int i = 0, maxi = 0;  
-    memset(fd,-1, sizeof(fd));  
-    fd[0] = sockfd;  
+    
+    //epoll相应参数准备
+    int fd[OPEN_MAX];
+    int i = 0, maxi = 0;
+    memset(fd,-1, sizeof(fd));
+    fd[0] = sockfd;
       
-    int epfd = epoll_create(10); // 创建一个 epoll 的句柄，参数要大于 0， 没有太大意义    
-    if( epfd < 0 ){    
-        perror ("server: epoll_create failed!");    
-        return -1;    
+    int epfd = epoll_create(10); // 创建一个 epoll 的句柄，参数要大于 0， 没有太大意义
+    if( epfd < 0 ){
+        log_e ("server: epoll_create failed!");
+        return -1;
     }
-    printf("server: epoll_create OK\n");
-        
+    log_i("server: epoll_create OK\n");
+    
     event.data.fd = sockfd;     //监听套接字    
     event.events = EPOLLIN; // 表示对应的文件描述符可以读  
       
     //5.事件注册函数，将监听套接字描述符 sockfd 加入监听事件    
     int ret = epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &event);    
     if(-1 == ret){    
-        perror("epoll_ctl");    
+        log_e("epoll_ctl");    
         return -1;    
     }
-    printf("server: epoll_ctl OK\n");
+    log_i("server: epoll_ctl OK\n");
       
     //6.对已连接的客户端的数据处理  
     while(1)  
@@ -124,7 +122,7 @@ int main(int argc, char *argv[])
                     //6.1.3.事件注册函数，将监听套接字描述符 connfd 加入监听事件    
                     ret = epoll_ctl(epfd, EPOLL_CTL_ADD, connfd, &event);    
                     if(-1 == ret){    
-                        perror("epoll_ctl");    
+                        log_e("epoll_ctl");    
                         return -1;    
                     }   
                       
@@ -162,7 +160,9 @@ int main(int argc, char *argv[])
                         fd[i] = -1;  
                     }  
                     else  
-                        perror("read error:");  
+                    {
+                        log_e("read error:");
+                    }
                 }  
                 else if(len == 0)//客户端关闭连接  
                 {  
