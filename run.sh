@@ -15,12 +15,12 @@ print_help()
 
 run_server()
 {
-    ./build/server
+    ./bin/server
 }
 
 run_client()
 {
-    ./build/client
+    ./bin/client
 }
 
 if [[ $# != 1 ]]; then
