@@ -6,7 +6,7 @@
 #include <string.h>
 #include <memory.h>
 
-#include "inc/comm.h"
+#include "include/comm.h"
 
 const char* ipaddr = "127.0.0.1";
 
