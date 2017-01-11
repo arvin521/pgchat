@@ -1,3 +1,7 @@
+#ifdef _cplusplus 
+extern "C"{ 
+#endif
+
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <netinet/in.h>
@@ -278,3 +282,9 @@ int main()
     
     return 0;
 }
+
+
+
+#ifdef _cplusplus 
+} 
+#endif

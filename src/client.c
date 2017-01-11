@@ -1,3 +1,6 @@
+#ifdef _cplusplus 
+extern "C"{ 
+#endif
 
 #include <netdb.h>
 #include <unistd.h>
@@ -48,3 +51,7 @@ int main(void)
 
     return 0;
 }
+
+#ifdef _cplusplus 
+} 
+#endif
