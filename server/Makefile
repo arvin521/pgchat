@@ -2,15 +2,18 @@
 CFLAGS := -g -Wall -O3
 CC := gcc $(CFLAGS)
 
+Pwd := $(shell pwd)
 INCLUDE := -Iinc
+INCLUDE += -I$(Pwd)/../public/inc
 
-#Sources := $(shell find -iname *.c )  
-Sources := ./src/server.c  
+#Sources := $(shell find -iname *.c )
+Sources := ./src/server.c
 
-Objs := $(Sources:.c=.o)  
+Objs := $(Sources:.c=.o)
   
 server:$(Objs)  
-	$(CC) -o ../bin/$@ $(Objs)  
+	$(CC) -o ../bin/$@ $(Objs)
+	-rm $(Sources:.c=.o)
   
 -include $(Sources:.c=.d)  
 
@@ -23,6 +26,6 @@ server:$(Objs)
 $(Objs):%o:%c
 	$(CC) -c $< -o $@ $(INCLUDE)
 
-.PHONY : clean  
-clean:  
-	rm $(Sources:.c=.o)
+.PHONY:clean
+clean:
+	-rm $(Sources:.c=.o)

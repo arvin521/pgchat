@@ -16,7 +16,7 @@ int main(void)
     memset(&serveraddr, 0, sizeof(serveraddr));
     serveraddr.sin_family = AF_INET;
 
-    serveraddr.sin_port = htons(SERV_PORT);
+    serveraddr.sin_port = htons(c_portnumber);
     //pointer to network
     inet_pton(AF_INET, ipaddr, &serveraddr.sin_addr.s_addr);
     //调用connect指定服务器的ip

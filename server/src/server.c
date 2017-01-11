@@ -3,6 +3,7 @@ extern "C"{
 #endif
 
 #include "server.h"
+#include "comm.h"
 
 void setnonblocking(int sock)
 {
@@ -36,7 +37,7 @@ int main()
     int sockfd;
     int epfd;
     int nfds;
-    int portnumber = 5000;
+
     char line[MAXLINE];
     socklen_t clilen;
 
@@ -49,26 +50,26 @@ int main()
     struct sockaddr_in clientaddr;
     struct sockaddr_in serveraddr;
 
-    listenfd = socket(AF_INET, SOCK_STREAM, 0); //OK
+    listenfd = socket(AF_INET, SOCK_STREAM, 0);
 
     memset(&serveraddr, 0, sizeof(serveraddr));
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serveraddr.sin_port=htons(portnumber);
+    serveraddr.sin_port=htons(c_portnumber);
 
     // bind and listen
-    bind(listenfd,(struct sockaddr *)&serveraddr, sizeof(serveraddr)); //ok
+    bind(listenfd,(struct sockaddr *)&serveraddr, sizeof(serveraddr));
 
     //解决 Bind error: Address already in use,使绑定的ip关闭后立刻重新使用
     int on = 1;
-    int ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)); //ok
+    int ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
     if(ret < 0)
     {    
         perror("server: setsockopt failed!");
         return -1;
     }
 
-    listen(listenfd, LISTENQ); //ok
+    listen(listenfd, LISTENQ);
 
     //设置与要处理的事件相关的文件描述符
     ev.data.fd=listenfd;
