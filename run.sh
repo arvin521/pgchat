@@ -32,6 +32,8 @@ if [[ "$1" == '-c' ]]; then
     run_client
 elif [[ "$1" == '-s' ]]; then
     run_server
+elif [[ "$1" == '-h' || "$1" == '-help' ]]; then
+    print_help
 else
     print_help "invald arg: $1"
 fi
