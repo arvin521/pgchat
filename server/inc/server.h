@@ -13,19 +13,28 @@
 #include <string.h>
 
 /************************* 宏定义 *************************/
-
-#define MAXLINE 256
-#define OPEN_MAX 100
-#define LISTENQ 20
-
-#define INFTIM 1000
+#define LISTEN_NUM 20
+#define EPOLL_EVENTS_NUM 20
+#define EPOLL_CREATE_NUM 256
+#define BUFF_SIZE 256
 
 /************************* 常量定义 *************************/
 const int c_portnumber = 5000;
 /************************* 参数宏定义 *************************/
 
-/************************* 联合体定义 *************************/
+typedef struct SOCKET_INFO
+{
+    int iSocketfd;
 
+    int iEpollfd;
+    struct epoll_event stEpollEvent;
+    struct epoll_event astEpollEventsList[EPOLL_EVENTS_NUM];
+
+    char acSocketBuff[BUFF_SIZE];
+    char acSocketSendBuff[BUFF_SIZE];
+} stSOCKET_INFO, *pstSOCKET_INFO;
+
+/************************* 联合体定义 *************************/
 
 /************************* 结构体定义 *************************/
 

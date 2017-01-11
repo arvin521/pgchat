@@ -14,6 +14,11 @@
 #define OUT
 #define IO
 
+#define log_d printf
+#define log_i printf
+#define log_w printf
+#define log_e perror
+
 /************************* 常量定义 *************************/
 const int port = 12345;
 
@@ -27,5 +32,6 @@ const int port = 12345;
     }
 
 /************************* API函数声明 *************************/
+
 
 #endif
