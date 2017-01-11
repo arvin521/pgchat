@@ -1,4 +1,5 @@
 all:
+	mkdir -p bin
 	cd server; make
 	cd client; make
 
