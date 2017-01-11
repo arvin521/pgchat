@@ -14,7 +14,7 @@
 
 /************************* 宏定义 *************************/
 
-#define MAXLINE 5
+#define MAXLINE 5   
 #define OPEN_MAX 100
 #define LISTENQ 20
 #define SERV_PORT 5000

@@ -3,7 +3,7 @@ CFLAGS := -g -Wall -O3
 CC := gcc $(CFLAGS)
 
 INCLUDE := -Iinc
-  
+
 #Sources := $(shell find -iname *.c )  
 Sources := ./src/server.c  
 
