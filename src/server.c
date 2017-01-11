@@ -2,16 +2,6 @@
 extern "C"{ 
 #endif
 
-#include <sys/socket.h>
-#include <sys/epoll.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-
 #include "server.h"
 
 void setnonblocking(int sock)
@@ -41,7 +31,6 @@ void CloseAndDisable(int sockid, struct epoll_event ee)
 int main()
 {
     int i;
-    int maxi = 0;
     int listenfd;
     int connfd;
     int sockfd;

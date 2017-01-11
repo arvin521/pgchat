@@ -2,14 +2,6 @@
 extern "C"{ 
 #endif
 
-#include <netdb.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <memory.h>
-
 #include "client.h"
 
 int main(void)

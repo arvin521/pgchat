@@ -1,5 +1,5 @@
-CC := gcc
-CFLAGS := -g -Wall
+CFLAGS := -g -Wall -O3
+CC := gcc $(CFLAGS)
  
 CUR_DIR := $(shell pwd)
 #TOP_DIR := $(CUR_DIR)/..
@@ -15,16 +15,16 @@ all : $(TARGETS)
 	-rm *.o
  
 server: server.o
-	$(CC) -o $(BIN_DIR)/server server.o 
+	@$(CC) -o $(BIN_DIR)/server server.o 
 
 client: client.o
-	$(CC) -o $(BIN_DIR)/client client.o
+	@$(CC) -o $(BIN_DIR)/client client.o
  
 server.o: ${INC_DIR}/server.h
-	$(CC) -c ${SRC_DIR}/server.c -I${INC_DIR}
+	@$(CC) -c ${SRC_DIR}/server.c -I${INC_DIR}
 
 client.o: ${INC_DIR}/client.h
-	$(CC) -c ${SRC_DIR}/client.c -I${INC_DIR}
+	@$(CC) -c ${SRC_DIR}/client.c -I${INC_DIR}
 
 .PHONY: clean 
 clean :
