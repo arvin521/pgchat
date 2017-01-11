@@ -7,8 +7,7 @@
 #include <string.h>
 #include <memory.h>
 
-const char* ipaddr = "127.0.0.1";
-#define SERV_PORT 5000
+#include "client.h"
 
 int main(void)
 {

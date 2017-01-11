@@ -1,28 +1,31 @@
-# export C_INCLUDE_PATH=C_INCLUDE_PATH:/home/wwj/workspace/prj/pgchat
+CC := gcc
+CFLAGS := -g -Wall
+ 
+CUR_DIR := $(shell pwd)
+#TOP_DIR := $(CUR_DIR)/..
+SRC_DIR := $(CUR_DIR)/src
+INC_DIR := $(CUR_DIR)/include
+BIN_DIR := $(CUR_DIR)/bin
+BUILD_DIR := $(CUR_DIR)/build
 
-# VPATH = src:include
+TARGETS := server client 
 
-# all :
-# 	gcc -o bin/server src/server.c
-# 	gcc -o bin/client src/client.c
-
-#VPATH=include:src
-vpath %.c src
-vpath %.h include
-
-server:server.o
-	@gcc -o bin/$@ server.o
-
-client:client.o
-	@gcc -o bin/$@ client.o
-
-server.o:server.c server.h
-	@gcc -c $< -Iinclude
-
-client.o:client.c client.h
-	@gcc -c $< -Iinclude
-
-.PHONY:clean
-clean:
+.PHONY:all 
+all : $(TARGETS)
 	-rm *.o
+ 
+server: server.o
+	$(CC) -o $(BIN_DIR)/server server.o 
 
+client: client.o
+	$(CC) -o $(BIN_DIR)/client client.o
+ 
+server.o: ${INC_DIR}/server.h
+	$(CC) -c ${SRC_DIR}/server.c -I${INC_DIR}
+
+client.o: ${INC_DIR}/client.h
+	$(CC) -c ${SRC_DIR}/client.c -I${INC_DIR}
+
+.PHONY: clean 
+clean :
+	-rm bin/* *.o
