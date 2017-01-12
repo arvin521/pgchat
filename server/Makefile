@@ -6,8 +6,9 @@ Pwd := $(shell pwd)
 INCLUDE := -Iinc
 INCLUDE += -I$(Pwd)/../public/inc
 
-#Sources := $(shell find -iname *.c )
-Sources := ./src/server.c
+Sources := $(shell find -iname *.c )
+#Sources := ./src/server.c
+#Sources += ./src/socket.c
 
 Objs := $(Sources:.c=.o)
   
