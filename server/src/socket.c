@@ -7,6 +7,8 @@ extern "C"{
 
 static const int c_iServPort = 5000;
 
+/*************** local function definition **************/
+
 static void set_no_blocking(int iSocketfd)
 {
     int iOpts = 0;
@@ -31,6 +33,8 @@ static void socket_close(int sockid, struct epoll_event *pstEpollEv)
     close(sockid);
     pstEpollEv->data.fd = -1;
 }
+
+/*************** API function definition *****************/
 
 int socket_init(OUT pstSOCKET_INFO pstSocketInfo)
 {

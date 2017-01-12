@@ -2,7 +2,6 @@
 #ifndef __SERVER_SOCKET_H__
 #define __SERVER_SOCKET_H__
 
-
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <netinet/in.h>
@@ -26,6 +25,10 @@
 
 /************************* Parameter macro definition ***************/
 
+/************************* union definition *************************/
+
+/************************* struct definition ************************/
+
 typedef struct SOCKET_INFO
 {
     int iSocketfdListen;
@@ -38,14 +41,11 @@ typedef struct SOCKET_INFO
     char acSocketSendBuff[BUFF_SIZE];
 } stSOCKET_INFO, *pstSOCKET_INFO;
 
-/************************* union definition *************************/
 
-/************************* struct definition ************************/
-
-/************************* local function definition ****************/
+/************************* local function declaration ***************/
 
 
-/************************* API function definition ******************/
+/************************* API function declaration ******************/
 
 int socket_init(OUT pstSOCKET_INFO pstSocketInfo);
 int socket_wait(IN pstSOCKET_INFO pstSocketInfo, OUT int *piFdNum);
