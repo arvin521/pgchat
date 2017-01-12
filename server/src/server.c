@@ -8,7 +8,7 @@ extern "C"{
 static void set_no_blocking(int iSocketfd)
 {
     int iOpts = 0;
-    
+
     iOpts = fcntl(iSocketfd, F_GETFL);
     if(iOpts < 0)
     {
@@ -39,8 +39,8 @@ int socket_init(OUT pstSOCKET_INFO pstSocketInfo)
 
     struct sockaddr_in stServerAddr;
 
-    pstSocketInfo->iSocketfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (pstSocketInfo->iSocketfd < 0)
+    pstSocketInfo->iSocketfdListen = socket(AF_INET, SOCK_STREAM, 0);
+    if (pstSocketInfo->iSocketfdListen < 0)
     {
         log_e("create socket failed!");
         return ERR;
@@ -50,51 +50,46 @@ int socket_init(OUT pstSOCKET_INFO pstSocketInfo)
     stServerAddr.sin_family = AF_INET;
     stServerAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     stServerAddr.sin_port=htons(c_portnumber);
-
-    // bind and listen
-    iRet = bind(pstSocketInfo->iSocketfd,(struct sockaddr *)&stServerAddr, sizeof(stServerAddr));
+    iRet = bind(pstSocketInfo->iSocketfdListen, (struct sockaddr *)&stServerAddr, sizeof(stServerAddr));
     if (iRet < 0)
     {   
         log_e("socket bind failed!");
-        close(pstSocketInfo->iSocketfd);
+        close(pstSocketInfo->iSocketfdListen);
         return ERR;
     } 
 
-    //解决 Bind error: Address already in use,使绑定的ip关闭后立刻重新使用
-    iRet = setsockopt(pstSocketInfo->iSocketfd, SOL_SOCKET, SO_REUSEADDR, &iSwitch, sizeof(iSwitch));
+    //fix bug: Bind error: Address already in use
+    iRet = setsockopt(pstSocketInfo->iSocketfdListen, SOL_SOCKET, SO_REUSEADDR, &iSwitch, sizeof(iSwitch));
     if(iRet < 0)
     {    
         log_e("server: setsockopt failed!");
-        close(pstSocketInfo->iSocketfd);
+        close(pstSocketInfo->iSocketfdListen);
         return -1;
     }
 
-    iRet = listen(pstSocketInfo->iSocketfd, LISTEN_NUM);
+    iRet = listen(pstSocketInfo->iSocketfdListen, LISTEN_NUM);
     if (iRet < 0)
     {
         log_e("socket listen failed!");
-        close(pstSocketInfo->iSocketfd);
+        close(pstSocketInfo->iSocketfdListen);
         return ERR;
     }
 
-    //生成用于处理accept的epoll专用的文件描述符
     pstSocketInfo->iEpollfd = epoll_create(EPOLL_CREATE_NUM);
     if( pstSocketInfo->iEpollfd < 0 ){
         log_e("server: epoll_create failed!");
-        close(pstSocketInfo->iSocketfd);
+        close(pstSocketInfo->iSocketfdListen);
         return ERR;
     }
 
-    //设置与要处理的事件相关的文件描述符
-    pstSocketInfo->stEpollEvent.data.fd = pstSocketInfo->iSocketfd;
-    //设置要处理的事件类型ET
-    pstSocketInfo->stEpollEvent.events = EPOLLIN | EPOLLET;
+    pstSocketInfo->stEpollEvent.data.fd = pstSocketInfo->iSocketfdListen;
+    pstSocketInfo->stEpollEvent.events = EPOLLIN | EPOLLET; //events type is : ET
 
-    //注册epoll事件
-    iRet = epoll_ctl(pstSocketInfo->iEpollfd, EPOLL_CTL_ADD, pstSocketInfo->iSocketfd, &(pstSocketInfo->stEpollEvent));
+    //register epoll event
+    iRet = epoll_ctl(pstSocketInfo->iEpollfd, EPOLL_CTL_ADD, pstSocketInfo->iSocketfdListen, &(pstSocketInfo->stEpollEvent));
     if (iRet < 0)
     {
-        close(pstSocketInfo->iSocketfd);
+        close(pstSocketInfo->iSocketfdListen);
         log_e("epoll_ctl");
         return ERR;
     }
@@ -119,31 +114,31 @@ int socket_add(IN pstSOCKET_INFO pstSocketInfo)
 
     if (NULL == pstSocketInfo)
     {
-        close(pstSocketInfo->iSocketfd);
+        close(pstSocketInfo->iSocketfdListen);
         return ERR;
     }
 
     memset(&stClientAddr, 0, sizeof(stClientAddr));
 
-    iAcceptfd = accept(pstSocketInfo->iSocketfd, (struct sockaddr *)&stClientAddr, &clilen);
+    iAcceptfd = accept(pstSocketInfo->iSocketfdListen, (struct sockaddr *)&stClientAddr, &clilen);
     if(iAcceptfd < 0){
         log_e("accept failed!");
-        close(pstSocketInfo->iSocketfd);
+        close(pstSocketInfo->iSocketfdListen);
         return ERR;
     }
 
     printf("accapt a connection from %s\n", inet_ntoa(stClientAddr.sin_addr));
 
-    //设置用于读操作的文件描述符
     set_no_blocking(iAcceptfd);
-    pstSocketInfo->stEpollEvent.data.fd=iAcceptfd;
-    pstSocketInfo->stEpollEvent.events=EPOLLIN | EPOLLET;
+
+    pstSocketInfo->stEpollEvent.data.fd = iAcceptfd;
+    pstSocketInfo->stEpollEvent.events  = EPOLLIN | EPOLLET;
 
     iRet = epoll_ctl(pstSocketInfo->iEpollfd, EPOLL_CTL_ADD, iAcceptfd, &(pstSocketInfo->stEpollEvent));
     if(iRet < 0)
     {
-        log_e("epoll_ctl");
-        close(pstSocketInfo->iSocketfd);
+        log_e("epoll_ctl\n");
+        close(pstSocketInfo->iSocketfdListen);
         return ERR;
     }
 
@@ -156,59 +151,61 @@ int socket_recv(struct epoll_event *pstCurrEpollEvent,IO pstSOCKET_INFO pstSocke
     int iRecvNum = 0;
     int iCounter = 0;
     int iIsReadOver = 0;
-    char *pcBuffHead = pstSocketInfo->acSocketBuff;
+    int iCurrSocketfd = 0;
+    char *pcBuffHead = NULL;
 
     CHECK_PARAM_RET(pstCurrEpollEvent, ERR);
     CHECK_PARAM_RET(pstSocketInfo, ERR);
 
     log_i("EPOLLIN\n");
 
-    pstSocketInfo->iSocketfd = pstCurrEpollEvent->data.fd;
-    if (pstSocketInfo->iSocketfd < 0)
+    pcBuffHead = pstSocketInfo->acSocketBuff;
+
+    iCurrSocketfd = pstCurrEpollEvent->data.fd;
+    if (iCurrSocketfd < 0)
     {
         return OK;
     }
 
-    //暂时清零，多线程的时候再修改
+    //TODO: Temporarily cleared, consider multi threading and then modify
     memset(pstSocketInfo->acSocketBuff, 0, sizeof(pstSocketInfo->acSocketBuff));
 
     while (1)
     {
-        // 确保 pstSocketInfo->iSocketfd 是 nonblocking 的
-        iRecvNum = recv(pstSocketInfo->iSocketfd, pcBuffHead + iCounter, BUFF_SIZE, 0);
+        // make sure "iCurrSocketfd" is no blocking
+        iRecvNum = recv(iCurrSocketfd, pcBuffHead + iCounter, BUFF_SIZE, 0);
         if(iRecvNum < 0)
         {
             if(errno == EAGAIN)
             {
-                // 由于是非阻塞的模式,所以当errno为EAGAIN时,表示当前缓冲区已无数据可读
-                // 在这里就当作是该次事件已处理处.
+                // errno is equal to EAGAIN indicates that current buff has no data to be read.
                 iIsReadOver = 1;
                 break;
             }
             else if (errno == ECONNRESET)
             {
-                // 对方发送了RST
-                socket_close(pstSocketInfo->iSocketfd, pstCurrEpollEvent);
+                // client had sent RST
+                socket_close(iCurrSocketfd, pstCurrEpollEvent);
                 printf("counterpart send out RST\n");
                 break;
                 }
             else if (errno == EINTR)
             {
-                // 被信号中断
+                // interrupt by signal
                 continue;
             }
             else
             {
-                //其他不可弥补的错误
-                socket_close(pstSocketInfo->iSocketfd, pstCurrEpollEvent);
+                // Other irreparable mistakes
+                socket_close(iCurrSocketfd, pstCurrEpollEvent);
                 printf("unrecovable error\n");
                 break;
             }
         }
         else if( iRecvNum == 0)
         {
-            // 这里表示对端的socket已正常关闭.发送过FIN了。
-            socket_close(pstSocketInfo->iSocketfd, pstCurrEpollEvent);
+            // receive FIN indicates that client socket had closed
+            socket_close(iCurrSocketfd, pstCurrEpollEvent);
             printf("counterpart has shut off\n");
             break;
         }
@@ -217,13 +214,13 @@ int socket_recv(struct epoll_event *pstCurrEpollEvent,IO pstSOCKET_INFO pstSocke
         iCounter += iRecvNum;
         if ( iRecvNum == BUFF_SIZE)
         {
-            continue;   // 需要再次读取
+            continue;   // need read again
         }
-        else // 0 < iRecvNum < BUFF_SIZE
+        else
         {
-            // 安全读完
+            // Read all the data
             iIsReadOver = 1;
-            break; // 退出while(1),表示已经全部读完数据
+            break;
         }
     }
 
@@ -234,14 +231,14 @@ int socket_recv(struct epoll_event *pstCurrEpollEvent,IO pstSOCKET_INFO pstSocke
 
         log_i("recv from client : %s\n", pstSocketInfo->acSocketBuff);
 
-        pstSocketInfo->stEpollEvent.data.fd=pstSocketInfo->iSocketfd;
-        pstSocketInfo->stEpollEvent.events = EPOLLOUT | EPOLLET;
+        pstSocketInfo->stEpollEvent.data.fd = iCurrSocketfd;
+        pstSocketInfo->stEpollEvent.events  = EPOLLOUT | EPOLLET;
 
-        iRet = epoll_ctl(pstSocketInfo->iEpollfd, EPOLL_CTL_MOD, pstSocketInfo->iSocketfd, &(pstSocketInfo->stEpollEvent));
+        iRet = epoll_ctl(pstSocketInfo->iEpollfd, EPOLL_CTL_MOD, iCurrSocketfd, &(pstSocketInfo->stEpollEvent));
         if(iRet < 0)
         {
             log_e("epoll_ctl\n");
-            socket_close(pstSocketInfo->iSocketfd, pstCurrEpollEvent);
+            socket_close(iCurrSocketfd, pstCurrEpollEvent);
             return ERR;
         }
         
@@ -253,11 +250,18 @@ int socket_recv(struct epoll_event *pstCurrEpollEvent,IO pstSOCKET_INFO pstSocke
 int socket_send(IN struct epoll_event *pstCurrEpollEvent, IO pstSOCKET_INFO pstSocketInfo)
 {
     const char str[] = "Send :hello!!!\n";
+    int iRet = 0;
     int iCounter = 0;
     int iIsWritenOver = 0;
     int iIsWritenLen = 0;
-    int iCurrSocketfd = pstCurrEpollEvent->data.fd;
-    char *pcSendBuffHead = pstSocketInfo->acSocketSendBuff;
+    int iCurrSocketfd = 0;
+    char *pcSendBuffHead = NULL;
+
+    CHECK_PARAM_RET(pstCurrEpollEvent, ERR);
+    CHECK_PARAM_RET(pstSocketInfo, ERR);
+
+    iCurrSocketfd = pstCurrEpollEvent->data.fd;
+    pcSendBuffHead = pstSocketInfo->acSocketSendBuff;
 
     memset(pstSocketInfo->acSocketSendBuff, 0, sizeof(pstSocketInfo->acSocketSendBuff));
     memcpy(pstSocketInfo->acSocketSendBuff, str, sizeof(str));
@@ -266,63 +270,68 @@ int socket_send(IN struct epoll_event *pstCurrEpollEvent, IO pstSOCKET_INFO pstS
 
     while(1)
     {
-        // 确保 iCurrSocketfd 是非阻塞的
+        // make sure "iCurrSocketfd" is no blocking
         iIsWritenLen = send(iCurrSocketfd, pcSendBuffHead + iCounter, BUFF_SIZE, 0);
         if (iIsWritenLen == -1)
         {
             if (errno == EAGAIN)
             {
-                // 对于nonblocking 的socket而言，这里说明了已经全部发送成功了
+                // send all the data
                 iIsWritenOver = 1;
                 break;
             }
             else if(errno == ECONNRESET)
             {
-                // 对端重置,对方发送了RST
+                // client reset, and send RST
                 socket_close(iCurrSocketfd, pstCurrEpollEvent);
                 printf("counterpart send out RST\n");
                 break;
             }
             else if (errno == EINTR)
             {
-                // 被信号中断
+                // interrupt by signal
                 continue;
             }
             else
             {
-                // 其他错误
+                // other mistake
             }
         }
 
         if (iIsWritenLen == 0)
         {
-            // 这里表示对端的socket已正常关闭.
+            // client socket is closed!
             socket_close(iCurrSocketfd, pstCurrEpollEvent);
             printf("counterpart has shut off\n");
             break;
         }
 
-        // 以下的情况是writenLen > 0
         iCounter += iIsWritenLen;
         if (iIsWritenLen == BUFF_SIZE)
         {
-            // 可能还没有写完
+            // continue write
             continue;
         }
         else // 0 < iIsWritenLen < BUFF_SIZE
         {
-            // 已经写完了
+            // writed all the data
             iIsWritenOver = 1;
-            break; // 退出while(1)
+            break;
         }
     }
 
     if (iIsWritenOver)
     {
-        pstSocketInfo->stEpollEvent.data.fd = pstSocketInfo->iSocketfd;
+        pstSocketInfo->stEpollEvent.data.fd = iCurrSocketfd;
         pstSocketInfo->stEpollEvent.events=EPOLLIN | EPOLLET;
 
-        epoll_ctl(pstSocketInfo->iEpollfd,EPOLL_CTL_MOD, pstSocketInfo->iSocketfd, &(pstSocketInfo->stEpollEvent));
+        iRet = epoll_ctl(pstSocketInfo->iEpollfd, EPOLL_CTL_MOD, iCurrSocketfd, &(pstSocketInfo->stEpollEvent));
+        if(iRet < 0)
+        {
+            log_e("epoll_ctl\n");
+            socket_close(iCurrSocketfd, pstCurrEpollEvent);
+            return ERR;
+        }
     }
 
     return OK;
@@ -349,13 +358,14 @@ int main()
         iRet = socket_wait(&stSocketInfo, &iFdNum);
         if (iRet != OK)
         {
+            log_e("socket_wait failed, continue!\n");
             continue;
         }
-        //处理所发生的所有事件
+        // process all things
         for(i = 0; i < iFdNum; ++i)
         {
-            //如果新监测到一个SOCKET用户连接到了绑定的SOCKET端口，建立新的连接。
-            if(stSocketInfo.astEpollEventsList[i].data.fd == stSocketInfo.iSocketfd)
+            // receive a new connect
+            if(stSocketInfo.astEpollEventsList[i].data.fd == stSocketInfo.iSocketfdListen)
             {
                 log_i("Receive a new link!\n");
                 iRet = socket_add(&stSocketInfo);
@@ -365,7 +375,8 @@ int main()
                     return ERR;
                 }
             }
-            else if(stSocketInfo.astEpollEventsList[i].events & EPOLLIN)//如果是已经连接的用户，并且收到数据，那么进行读入。
+            //Already connected users, and receive data, then read.
+            else if(stSocketInfo.astEpollEventsList[i].events & EPOLLIN)
             {
                 iRet = socket_recv(&(stSocketInfo.astEpollEventsList[i]), &stSocketInfo);
                 if (iRet != OK)
@@ -374,7 +385,8 @@ int main()
                     return ERR;
                 }
             }
-            else if(stSocketInfo.astEpollEventsList[i].events & EPOLLOUT) // 如果有数据发送
+            // no data to send.
+            else if(stSocketInfo.astEpollEventsList[i].events & EPOLLOUT)
             {
                 iRet = socket_send(&(stSocketInfo.astEpollEventsList[i]), &stSocketInfo);
                 if (iRet != OK)

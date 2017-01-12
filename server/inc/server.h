@@ -12,19 +12,22 @@
 #include <errno.h>
 #include <string.h>
 
-/************************* 宏定义 *************************/
+/************************* Macro definition *************************/
+
 #define LISTEN_NUM 20
 #define EPOLL_EVENTS_NUM 20
 #define EPOLL_CREATE_NUM 256
 #define BUFF_SIZE 256
 
-/************************* 常量定义 *************************/
+/************************* const definition *************************/
+
 const int c_portnumber = 5000;
-/************************* 参数宏定义 *************************/
+
+/************************* Parameter macro definition ***************/
 
 typedef struct SOCKET_INFO
 {
-    int iSocketfd;
+    int iSocketfdListen;
 
     int iEpollfd;
     struct epoll_event stEpollEvent;
@@ -34,14 +37,14 @@ typedef struct SOCKET_INFO
     char acSocketSendBuff[BUFF_SIZE];
 } stSOCKET_INFO, *pstSOCKET_INFO;
 
-/************************* 联合体定义 *************************/
+/************************* union definition *************************/
 
-/************************* 结构体定义 *************************/
+/************************* struct definition ************************/
 
-/************************* 本地函数声明 *************************/
+/************************* local function definition ****************/
 
 
-/************************* API函数声明 *************************/
+/************************* API function definition ******************/
 
 
 
