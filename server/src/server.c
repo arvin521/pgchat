@@ -55,7 +55,10 @@ int main()
             // no data to send.
             else if(stSocketInfo.astEpollEventsList[i].events & EPOLLOUT)
             {
-                iRet = socket_send(&(stSocketInfo.astEpollEventsList[i]), &stSocketInfo);
+                char acStr[] = "aaaabbbb\n";
+                int iBuffSize = sizeof(acStr);
+
+                iRet = socket_send(&(stSocketInfo.astEpollEventsList[i]), acStr, iBuffSize, &stSocketInfo);
                 if (iRet != OK)
                 {
                     log_e("socket_send failed!");

@@ -253,31 +253,27 @@ int socket_recv(struct epoll_event *pstCurrEpollEvent,IO pstSOCKET_INFO pstSocke
     return OK;
 }
 
-int socket_send(IN struct epoll_event *pstCurrEpollEvent, IO pstSOCKET_INFO pstSocketInfo)
+int socket_send(IN struct epoll_event *pstCurrEpollEvent, IN char *pcSendBuff,
+                IN int iSendBuffSize, IO pstSOCKET_INFO pstSocketInfo)
 {
-    const char str[] = "Send :hello!!!\n";
     int iRet = 0;
     int iCounter = 0;
     int iIsWritenOver = 0;
     int iIsWritenLen = 0;
     int iCurrSocketfd = 0;
-    char *pcSendBuffHead = NULL;
+    char *pcSendBuffHead = pcSendBuff;
 
     CHECK_PARAM_RET(pstCurrEpollEvent, ERR);
     CHECK_PARAM_RET(pstSocketInfo, ERR);
 
     iCurrSocketfd = pstCurrEpollEvent->data.fd;
-    pcSendBuffHead = pstSocketInfo->acSocketSendBuff;
 
-    memset(pstSocketInfo->acSocketSendBuff, 0, sizeof(pstSocketInfo->acSocketSendBuff));
-    memcpy(pstSocketInfo->acSocketSendBuff, str, sizeof(str));
-
-    log_i("Write %s", pstSocketInfo->acSocketSendBuff);
+    log_i("Write %s", pcSendBuff);
 
     while(1)
     {
         // make sure "iCurrSocketfd" is no blocking
-        iIsWritenLen = send(iCurrSocketfd, pcSendBuffHead + iCounter, BUFF_SIZE, 0);
+        iIsWritenLen = send(iCurrSocketfd, pcSendBuffHead + iCounter, iSendBuffSize, 0);
         if (iIsWritenLen == -1)
         {
             if (errno == EAGAIN)
@@ -313,14 +309,13 @@ int socket_send(IN struct epoll_event *pstCurrEpollEvent, IO pstSOCKET_INFO pstS
         }
 
         iCounter += iIsWritenLen;
-        if (iIsWritenLen == BUFF_SIZE)
+        if (iIsWritenLen == iSendBuffSize)
         {
             // continue write
             continue;
         }
-        else // 0 < iIsWritenLen < BUFF_SIZE
+        else
         {
-            // writed all the data
             iIsWritenOver = 1;
             break;
         }

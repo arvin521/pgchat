@@ -9,7 +9,6 @@
 #define OK 0
 #define ERR -1
 
-//定义函数参数输入还是输岀
 #define IN
 #define OUT
 #define IO
@@ -24,7 +23,23 @@
 
 /************************* union definition *************************/
 
+typedef enum MSG_TYPE
+{
+    //client to server
+    MSG_C2S_REGISTER = 100, //register
+
+    //server to client
+    MSG_S2C_FRIEND_STATUS, //friends status
+}enMSG_TYPE;
+
 /************************* struct definition ************************/
+
+typedef struct MSG_INFO
+{
+    enMSG_TYPE enMsgType;
+    unsigned int pcMsgBuffSize;
+    char *pcMsgBuff;
+}stMSG_INFO, *pstMSG_INFO;
 
 /************************* Parameter macro definition ***************/
 

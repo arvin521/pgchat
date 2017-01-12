@@ -38,7 +38,6 @@ typedef struct SOCKET_INFO
     struct epoll_event astEpollEventsList[EPOLL_EVENTS_NUM];
 
     char acSocketBuff[BUFF_SIZE];
-    char acSocketSendBuff[BUFF_SIZE];
 } stSOCKET_INFO, *pstSOCKET_INFO;
 
 
@@ -51,6 +50,7 @@ int socket_init(OUT pstSOCKET_INFO pstSocketInfo);
 int socket_wait(IN pstSOCKET_INFO pstSocketInfo, OUT int *piFdNum);
 int socket_add(IN pstSOCKET_INFO pstSocketInfo);
 int socket_recv(struct epoll_event *pstCurrEpollEvent, IO pstSOCKET_INFO pstSocketInfo);
-int socket_send(IN struct epoll_event *pstCurrEpollEvent, IO pstSOCKET_INFO pstSocketInfo);
+int socket_send(IN struct epoll_event *pstCurrEpollEvent, IN char *pcSendBuff,
+                IN int iSendBuffSize, IO pstSOCKET_INFO pstSocketInfo);
 
 #endif
