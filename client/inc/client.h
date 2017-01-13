@@ -8,6 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <memory.h>
+#include <pthread.h>
+
+#include "comm.h"
+
 
 /************************* Macro definition *************************/
 

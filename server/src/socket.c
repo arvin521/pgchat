@@ -55,7 +55,7 @@ int socket_init(OUT pstSOCKET_INFO pstSocketInfo)
     memset(&stServerAddr, 0, sizeof(stServerAddr));
     stServerAddr.sin_family = AF_INET;
     stServerAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    stServerAddr.sin_port=htons(c_iServPort);
+    stServerAddr.sin_port = htons(c_iServPort);
     iRet = bind(pstSocketInfo->iSocketfdListen, (struct sockaddr *)&stServerAddr, sizeof(stServerAddr));
     if (iRet < 0)
     {   
